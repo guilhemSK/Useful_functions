@@ -1,3 +1,5 @@
+# Linear regression plot:
+
 cor.plot <- function(x,y,excluded.points=NULL,
                      x.lab,y.lab,y.lab.hjust=0.5,
                      x.log=F,y.log=F,fit=T,x.cor.pos=0.8,y.cor.pos=0.1,
