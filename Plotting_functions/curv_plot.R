@@ -3,8 +3,8 @@
 # and either a matrix of x values (one column per curve), or a single x vector if all curves share the same x values
 # requires ggplot and ggforce
 
-curv.plot <- function(x,y,col.vect=NULL,leg.name="Legend",
-                     x.lab,y.lab,y.lab.hjust=0.5,size.factor=1,
+curv.plot <- function(x,y,col.vect=NULL,leg.name="Legend",plot.points=F,
+                     x.lab,y.lab,y.lab.hjust=0.5,size.factor=1,line.size=1,
                      x.log=F,y.log=F,rev.x=F,rev.y=F,
                      mar.vect=c(5,5,5,5),letter=NULL,position.letter.xy=c(0.1,0.9),letter.size=12)
 {
@@ -48,24 +48,30 @@ curv.plot <- function(x,y,col.vect=NULL,leg.name="Legend",
     stop("Invalid x and y dimensions")
   
   if (!is.null(dim(y)))
+  {
     line.factor = rep(1:ncol(y),each=length.x)  
-  else 
+  } else 
     line.factor = rep(1,times=length.x)
   
   if (is.null(col.vect))
   {
-    plot = ggplot(data = data.frame(x = as.vector(x), y = as.vector(y), group = line.factor)) + 
-      geom_point(aes(x,y), size = 1*size.factor) +
-      geom_line(aes(x,y,group), size = 1*size.factor)
+    plot = ggplot(data = data.frame(x = as.vector(x), y = as.vector(y), group = line.factor)) +
+      geom_line(aes(x,y,group=factor(group)), size = line.size*size.factor)
+    if (plot.points)
+      plot = plot + geom_point(aes(x,y), size = 1*size.factor)
   } else
+  {
     # requires library(colorspace):
     plot = ggplot(data = data.frame(x = as.vector(x), y = as.vector(y), group = line.factor)) + 
-            geom_point(aes(x,y, colour = factor(group)), size = 1*size.factor) +
-            geom_line(aes(x,y,group=group, colour=factor(group)), size = 1*size.factor) +
+            geom_line(aes(x,y,group=factor(group), colour=factor(group)), size = line.size*size.factor,
+                      show.legend = if (!is.null(leg.name)) T else F) +
             scale_colour_manual(values = col.vect,
                                 labels = colnames(y),
                                 name = leg.name) +
             guides(colour = guide_legend(override.aes = list(size=3*size.factor)))
+    if (plot.points)
+      plot = plot + geom_point(aes(x,y, colour = factor(group)), size = 1*size.factor)
+  }
   
   plot = plot +
     theme_bw() +

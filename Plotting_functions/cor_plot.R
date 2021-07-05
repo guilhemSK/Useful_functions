@@ -2,11 +2,12 @@
 
 cor.plot <- function(x,y,col.factor=NULL,col.vect=NULL,leg.name="Legend",
                      excluded.points=NULL,
-                     x.lab,y.lab,y.lab.hjust=0.5,size.factor=1,
+                     x.lab,y.lab,x.lab.hjust=0.5,y.lab.hjust=0.5,size.factor=1,
                      x.log=F,y.log=F,
                      bin.nb=NULL,
                      binning = "equal_bin_size", # two options: "equal_spacing" or "equal_bin_size"
-                     fit=T,x.cor.pos=0.8,y.cor.pos=0.1,dis=F,signif.thres=NULL,
+                     fit=T,fit.display="pearson.p", # one of "pearson.p", "pearson.stars", "spearman.p", "spearman.stars", "pearson.spearman", "pearson.spearman.stars"
+                     fit.size.factor=1,x.cor.pos=0.8,y.cor.pos=0.1,dis=F,signif.thres=NULL,
                      mar.vect=c(5,5,5,5),letter=NULL,position.letter.xy=c(0.1,0.9),letter.size=12)
 {
   # dis = T is only useful if fit=T, so that a Mantel test is performed rather than a t-test
@@ -34,26 +35,20 @@ cor.plot <- function(x,y,col.factor=NULL,col.vect=NULL,leg.name="Legend",
   } else
     # requires library(colorspace):
     plot = ggplot(data = data.frame(x = x, y = y, col = col.factor)) + 
-      geom_point(aes(x,y, colour = factor(col.factor)), size = 1*size.factor) +
+      geom_point(aes(x,y, colour = factor(col.factor)), size = 1*size.factor, 
+                 show.legend = if (!is.null(leg.name)) T else F) +
       scale_colour_manual(values = if (is.null(col.vect)) rainbow_hcl(length(levels(factor(col.factor)))) else col.vect,
-                          name = leg.name) +
+                          name = if (!is.null(leg.name)) leg.name else "") +
       guides(colour = guide_legend(override.aes = list(size=3*size.factor)))
   
   plot = plot +
-    # geom_point(aes(x,y1)) +
-    # scale_x_log10() +
-    # scale_y_log10() +
     theme_bw() +
-    # ggtitle(LETTERS[6]) +
-    # geom_hline(yintercept = 1, linetype="dashed") +
-    # ggtitle("RDA adjR2 3 vs 2 abiotic PCA axes with stdzation") +
-    # ggtitle("Pure abiotic vs. total abiotic adjR2 3 axes") +
     theme(axis.text = element_text(size=22*size.factor),
           axis.title=element_text(size=22*size.factor),
+          axis.title.x = element_text(hjust = x.lab.hjust),
           axis.title.y = element_text(hjust = y.lab.hjust),
           plot.title=element_text(hjust=0, size=24*size.factor),
           plot.margin=unit(mar.vect,"mm")) +
-    #labs(x="Mean size (micron)", y=paste("Ratio of",c("surface","DCM")[i_case],"variance\n purely explained by currents vs. envir.")) +
     labs(x=x.lab, y=y.lab)
   
   x.not.excluded = x
@@ -66,7 +61,7 @@ cor.plot <- function(x,y,col.factor=NULL,col.vect=NULL,leg.name="Legend",
     x.excluded[-excluded.points] = NA
     y.excluded[-excluded.points] = NA
     plot = plot +
-      geom_point(aes(x.excluded,y.excluded), colour = ifelse(is.null(bin.nb),"gray","lightgray"))
+      geom_point(aes(x.excluded,y.excluded), colour = ifelse(is.null(bin.nb),"gray70","lightgray"))
     # x-y.not.excluded are the points to which the linear fit will be applied; 
     # x-y.fit differ in that they may be subsequently log-transformed (to apply cor.test):
     x.not.excluded[excluded.points] = NA
@@ -136,13 +131,11 @@ cor.plot <- function(x,y,col.factor=NULL,col.vect=NULL,leg.name="Legend",
     {
       x.pos = (max(x,na.rm=T)/min(x,na.rm=T))^x.cor.pos*min(x,na.rm=T)
       x.fit = log10(x.fit)
-      # x.fit[is.infinite(x.fit)] = NA
     }
     if (!is.null(letter))
       letter.x.pos = (max(x,na.rm=T)/min(x,na.rm=T))^position.letter.xy[1]*min(x,na.rm=T)
   } else
   {
-    # plot = plot + xlim(range(x))
     if (fit)
     {
       x.pos = x.cor.pos*(max(x,na.rm=T)-min(x,na.rm=T))+min(x,na.rm=T)
@@ -158,13 +151,11 @@ cor.plot <- function(x,y,col.factor=NULL,col.vect=NULL,leg.name="Legend",
     {
       y.pos = (max(y,na.rm=T)/min(y,na.rm=T))^y.cor.pos*min(y,na.rm=T)
       y.fit = log10(y.fit)
-      # y.fit[is.infinite(y.fit)] = NA
     }
     if (!is.null(letter))
       letter.y.pos = (max(y,na.rm=T)/min(y,na.rm=T))^position.letter.xy[2]*min(y,na.rm=T)
   } else
   {
-    # plot = plot + ylim(range(y))
     if (fit)
     {
       y.pos = y.cor.pos*(max(y,na.rm=T)-min(y,na.rm=T))+min(y,na.rm=T)
@@ -175,25 +166,92 @@ cor.plot <- function(x,y,col.factor=NULL,col.vect=NULL,leg.name="Legend",
   
   if (fit)
   {
+    split.fit.display = strsplit(fit.display, split=".", fixed=T)[[1]]
     # If the data are dissimilarities, performing a Mantel test rather than a t-test (using Pearson's correlation in both cases).
     if (!dis || !is.null(bin.nb))
-    {   
-      cor.test = cor.test(x.fit,y.fit,na.rm=T)
-      stat = cor.test$estimate
-      pval = cor.test$p.value
+    { 
+      if ("pearson" %in% split.fit.display)
+      {
+        cor.test = cor.test(x.fit,y.fit,na.rm=T)
+        stat = cor.test$estimate
+        pval = cor.test$p.value
+      }
+      if ("spearman" %in% split.fit.display)
+      {
+        cor.test.spear = cor.test(x.fit,y.fit,na.rm=T,method="spearman")
+        stat.spear = cor.test.spear$estimate
+        pval.spear = cor.test.spear$p.value
+      } 
     } else if (dis && is.null(bin.nb))
     {
-      test = vegan::mantel(x.fit,y.fit,permutations = 999,na.rm=T)
-      stat = test$statistic
-      pval = test$signif
+      if ("pearson" %in% split.fit.display)
+      {
+        test = vegan::mantel(x.fit,y.fit,permutations = 9999,na.rm=T)
+        stat = test$statistic
+        pval = test$signif
+      }
+      if ("spearman" %in% split.fit.display)
+      {
+        test.spear = vegan::mantel(x.fit,y.fit,method="spearman",permutations = 9999,na.rm=T)
+        stat.spear = test.spear$statistic
+        pval.spear = test.spear$signif
+      } 
     }
+    
+    if ("stars" %in% split.fit.display && "pearson" %in% split.fit.display)
+    {
+      if (pval > 0.05)
+        stars = ""
+      else if (pval < 0.05 & pval > 0.01)
+        stars = "*"
+      else if (pval < 0.01 & pval > 0.001)
+        stars = "**"
+      else if (pval < 0.001)
+        stars = "***"
+    }
+    if ("stars" %in% split.fit.display && "spearman" %in% split.fit.display)
+    {
+      if (pval.spear > 0.05)
+        stars.spear = ""
+      else if (pval.spear < 0.05 & pval.spear > 0.01)
+        stars.spear = "*"
+      else if (pval.spear < 0.01 & pval.spear > 0.001)
+        stars.spear = "**"
+      else if (pval.spear < 0.001)
+        stars.spear = "***"
+    }
+    
+    if (fit.display == "pearson.p")
+    {
+      fit.label = bquote(atop(rho[P]==.(format(stat,digits=2,nsmall=2)),
+                              P==.(format(pval,digits=1))))
+    } else if (fit.display == "spearman.p")
+    {
+      fit.label = bquote(atop(rho[S]==.(format(stat.spear,digits=2,nsmall=2)),
+                              P==.(format(pval.spear,digits=1))))
+    } else if (fit.display == "pearson.stars")
+    {
+      fit.label = bquote(rho[P]==.(format(stat,digits=2,nsmall=2))^.(stars))
+    } else if (fit.display == "spearman.stars")
+    {
+      fit.label = bquote(rho[S]==.(format(stat.spear,digits=2,nsmall=2))^.(stars.spear))
+    } else if (fit.display == "pearson.spearman")
+    {
+      fit.label = bquote(atop(rho[P]==.(format(stat,digits=2,nsmall=2))*","~P==.(format(pval,digits=1)),
+                              rho[S]==.(format(stat.spear,digits=2,nsmall=2))*","~P==.(format(pval.spear,digits=1))))
+    } else if (fit.display == "pearson.spearman.stars")
+    {
+      fit.label = bquote(atop(rho[P]==.(format(stat,digits=2,nsmall=2))^.(stars),
+                              rho[S]==.(format(stat.spear,digits=2,nsmall=2))^.(stars.spear)))
+    }
+      
     plot = plot + geom_smooth(data = data.frame(x = x.plot, y = y.plot), aes(x,y), method='lm',col="black", size = 1*size.factor) +
       annotate(geom="text", 
                x=x.pos,
                y=y.pos,
-               label=bquote(atop(rho==.(format(stat,digits=2,nsmall=2)),p==.(format(pval,digits=1)))),
+               label=fit.label,
                col= if (!is.null(signif.thres)) ifelse(pval < signif.thres,"blue","black") else "black",   
-               size=8*size.factor)
+               size= (if (fit.display == "pearson.spearman") 6 else 7.5)*size.factor*fit.size.factor)
   }
   
   if (!is.null(letter))
@@ -202,7 +260,6 @@ cor.plot <- function(x,y,col.factor=NULL,col.vect=NULL,leg.name="Legend",
                            x = letter.x.pos,
                            y = letter.y.pos,
                            label=letter,
-                           # label = bquote("Median"==.(format(median.adjR2.per.MEM[k],digits=2))),
                            hjust = 1,
                            size=letter.size*size.factor)
   }
